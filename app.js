@@ -11,7 +11,7 @@ const PORT = process.env.PORT || 5000;
 app.use(
   cors({
     origin: [
-      "https://live-share-frontend.vercel.app/",
+      "https://live-share-frontend.vercel.app",
       "http://localhost:3000",
       "http://localhost:56708",
     ],
