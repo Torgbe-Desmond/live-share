@@ -9,7 +9,7 @@ const server = http.createServer(app);
 // Socket.io initialization
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000"],
+    origin: ["http://localhost:3000","https://live-share-frontend.vercel.app/"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
