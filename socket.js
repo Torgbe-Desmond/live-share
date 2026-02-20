@@ -9,94 +9,142 @@ const server = http.createServer(app);
 // Socket.io initialization
 const io = new Server(server, {
   cors: {
-    origin: ["http://localhost:3000","https://live-share-frontend.vercel.app"],
+    origin: ["http://localhost:3000", "https://live-share-frontend.vercel.app"],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   },
 });
 
-// Handle user connection
-const handleUserConnection = async (socket, userData) => {
+// ────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────
+
+function getRoomNameWithSuffix(roomName) {
+  return `${roomName}@room`;
+}
+
+function updateRoomSize(roomName) {
+  const roomKey = getRoomNameWithSuffix(roomName);
+  const room = io.sockets.adapter.rooms.get(roomKey);
+  const size = room ? room.size : 0;
+
+  // io.to(roomKey).emit("roomSizeCount", { size });
+  // Optional: also emit list of users if frontend needs names
+  // io.to(roomKey).emit("onlineUsers", { users: [...], count: size });
+}
+
+function removeUserFromTracking(socket) {
+  const userId = Object.keys(userSocketMap).find(
+    (id) => userSocketMap[id] === socket.id,
+  );
+  if (userId) {
+    delete userSocketMap[userId];
+    console.log(`User ${userId} removed from tracking (socket: ${socket.id})`);
+  }
+}
+
+// ────────────────────────────────────────────────
+// Connection / Join logic
+// ────────────────────────────────────────────────
+
+const handleUserConnection = (socket, userData) => {
   try {
-    const { roomName, userId } = userData || {};
-    if (!roomName) {
-      console.error("Missing roomName in userData");
+    const { roomName, userId , username} = userData || {};
+    if (!roomName || !userId) {
+      console.error("Missing roomName or userId in join data");
       return;
     }
 
     userSocketMap[userId] = socket.id;
-    const roomNameWithSuffix = `${roomName}@room`;
-    socket.join(roomNameWithSuffix);
 
-    roomSize(roomName);
+    const roomKey = getRoomNameWithSuffix(roomName);
+    socket.join(roomKey);
+
+
+     io.to(roomKey).emit("userJoined", {
+      userId,
+      username,
+    });
+
   } catch (error) {
-    console.error("Error handling user connection:", error);
+    console.error("Error in handleUserConnection:", error);
   }
 };
 
-const sendMessageToRoom = ({ content, sender_id, roomName, username }) => {
-  const roomNameWithSuffix = `${roomName}@room`;
-  io.to(roomNameWithSuffix).emit("receiveMessage", {
+const sendMessageToRoom = ({ content, senderId, roomName, username,replyTo }) => {
+  const roomKey = getRoomNameWithSuffix(roomName);
+  io.to(roomKey).emit("receiveMessage", {
     content,
     roomName,
     username,
-    sender_id,
+    senderId,
+    replyTo,
+    timestamp: new Date().toISOString(), // optional but useful
   });
 };
 
-// Handle socket disconnection
-const handleDisconnection = (socket) => {
+const handleLeaveRoom = (socket, { roomName, userId, username }) => {
   try {
-    // Find and remove the user associated with the disconnected socket ID
-    const userId = Object.keys(userSocketMap).find(
-      (id) => userSocketMap[id] === socket.id,
-    );
+    if (!roomName || !userId) return;
 
-    if (userId) {
+    const roomKey = getRoomNameWithSuffix(roomName);
+
+    // 1. Remove from Socket.IO room
+    socket.leave(roomKey);
+
+    // 2. Remove from your user tracking
+    if (userSocketMap[userId] === socket.id) {
       delete userSocketMap[userId];
     }
+
+
+    // 3. Notify remaining users (optional but recommended)
+    io.to(roomKey).emit("userLeft", {
+      userId,
+      username,
+    });
+
+    // 4. Update count for everyone left in the room
+    updateRoomSize(roomName);
   } catch (error) {
-    console.error("Error handling disconnection:", error);
+    console.error("Error in handleLeaveRoom:", error);
   }
 };
 
-const roomSize = (roomName) => {
-  const roomNameWithSuffix = `${roomName}@room`;
-  const room = io.sockets.adapter.rooms.get(roomNameWithSuffix);
-  io.to(roomNameWithSuffix).emit("roomSizeCount", {
-    size: room ? room.size : 0,
+// ────────────────────────────────────────────────
+// Socket event setup
+// ────────────────────────────────────────────────
+
+io.on("connection", (socket) => {
+  console.log("New connection:", socket.id);
+
+  socket.on("joinRoom", (data) => {
+    handleUserConnection(socket, data);
   });
-};
 
-// Set up socket event listeners
-const setupSocketListeners = () => {
-  io.on("connection", (socket) => {
-    console.log("New socket connection established:", socket.id);
-
-    try {
-      socket.on("joinRoom", (data) => {
-        console.log("joinRoom event received with data:", data);
-        handleUserConnection(socket, data);
-      });
-      socket.on("sendMessage", (data) => {
-        console.log("sendMessage event received with data:", data);
-        sendMessageToRoom(data);
-      });
-    } catch (error) {
-      console.error("Invalid userData in handshake query:", error);
-    }
-
-    socket.on("disconnect", () => {
-      handleDisconnection(socket);
-    });
+  socket.on("sendMessage", (data) => {
+    sendMessageToRoom(data);
   });
-};
 
-// Initialize socket listeners
-setupSocketListeners();
+  // ─── NEW: leaveRoom handler ─────────────────────
+  socket.on("leaveRoom", (data) => {
+    handleLeaveRoom(socket, data);
+  });
 
-// Export io and related modules
+  socket.on("disconnect", () => {
+    console.log("Socket disconnected:", socket.id);
+
+    // Clean up tracking when user closes tab / refreshes
+    removeUserFromTracking(socket);
+
+    // If user was in a room → update size
+    // (you may need to track which room(s) each user is in)
+    // For now we skip auto-update on disconnect → you can improve later
+  });
+});
+
+// Export
 module.exports = {
   io,
   app,
