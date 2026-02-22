@@ -1,5 +1,5 @@
 "use strict";
-const { io, app, server } = require("./socket");
+const { io, app, server } = require("./server");
 const cors = require("cors");
 require("dotenv").config();
 const bodyParser = require("body-parser");
@@ -30,7 +30,6 @@ app.use("/api", require("./routes/index"));
 // Custom middleware for handling errors
 app.use(require("./middleware/error.middleware"));
 app.use(require("./middleware/notFound.middleware"));
-
 
 // Start server
 const start = async () => {

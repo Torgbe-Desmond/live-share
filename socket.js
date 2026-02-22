@@ -1,10 +1,16 @@
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const { userSocketMap, getUserSocket } = require("./functions/users");
+const {
+  userSocketMap,
+  // getUserSocket,   // if not used, you can remove it
+  roomSocketMap,
+} = require("./functions/users");
 
 const app = express();
 const server = http.createServer(app);
+const FileService = require("./services/file.service");
+const fileService = new FileService();
 
 // Socket.io initialization
 const io = new Server(server, {
@@ -20,27 +26,71 @@ const io = new Server(server, {
 // Helpers
 // ────────────────────────────────────────────────
 
-function getRoomNameWithSuffix(roomName) {
+function getRoomKey(roomName) {
   return `${roomName}@room`;
 }
 
-function updateRoomSize(roomName) {
-  const roomKey = getRoomNameWithSuffix(roomName);
+function getRoomSize(roomName) {
+  const roomKey = getRoomKey(roomName);
   const room = io.sockets.adapter.rooms.get(roomKey);
-  const size = room ? room.size : 0;
-
-  // io.to(roomKey).emit("roomSizeCount", { size });
-  // Optional: also emit list of users if frontend needs names
-  // io.to(roomKey).emit("onlineUsers", { users: [...], count: size });
+  return room ? room.size : 0;
 }
 
-function removeUserFromTracking(socket) {
+function broadcastRoomSize(roomName) {
+  if (!roomName) return;
+  const size = getRoomSize(roomName);
+  const roomKey = getRoomKey(roomName);
+  io.to(roomKey).emit("roomSizeCount", { size });
+  console.log(`Room ${roomName} size updated: ${size} users`);
+}
+
+async function cleanupRoomFiles(roomName) {
+  if (!roomName) return;
+
+  const size = getRoomSize(roomName);
+  if (size > 0) return; // only clean when truly empty
+
+  const files = roomSocketMap[roomName];
+  if (!Array.isArray(files) || files.length === 0) {
+    delete roomSocketMap[roomName];
+    return;
+  }
+
+  console.log(`Room ${roomName} is empty → cleaning up ${files.length} files`);
+
+  for (const file of files) {
+    try {
+      if (file?.publicId) {
+        await fileService.deleteAsync(roomName);
+        console.log(`Deleted all files in room: ${roomName}`);
+      }
+    } catch (err) {
+      console.error(
+        `Failed to delete file ${file?.publicId || "unknown"}:`,
+        err,
+      );
+    }
+  }
+
+  delete roomSocketMap[roomName];
+}
+
+async function removeUserFromTracking(socket) {
   const userId = Object.keys(userSocketMap).find(
-    (id) => userSocketMap[id] === socket.id,
+    (id) => userSocketMap[id]?.socketId === socket.id,
   );
-  if (userId) {
-    delete userSocketMap[userId];
-    console.log(`User ${userId} removed from tracking (socket: ${socket.id})`);
+
+  if (!userId) return;
+
+  const userData = userSocketMap[userId];
+  const roomName = userData?.room;
+
+  delete userSocketMap[userId];
+  console.log(`User ${userId} removed from tracking (socket: ${socket.id})`);
+
+  if (roomName) {
+    broadcastRoomSize(roomName);
+    await cleanupRoomFiles(roomName);
   }
 }
 
@@ -48,99 +98,116 @@ function removeUserFromTracking(socket) {
 // Connection / Join logic
 // ────────────────────────────────────────────────
 
-const handleUserConnection = (socket, userData) => {
+function handleUserConnection(socket, userData) {
   try {
-    const { roomName, userId , username} = userData || {};
+    const { roomName, userId, username } = userData || {};
     if (!roomName || !userId) {
       console.error("Missing roomName or userId in join data");
       return;
     }
 
-    userSocketMap[userId] = socket.id;
+    // Store user mapping
+    userSocketMap[userId] = { socketId: socket.id, room: roomName };
 
-    const roomKey = getRoomNameWithSuffix(roomName);
+    const roomKey = getRoomKey(roomName);
     socket.join(roomKey);
 
-
-     io.to(roomKey).emit("userJoined", {
+    // Notify room (including the joining user)
+    io.to(roomKey).emit("userJoined", {
       userId,
       username,
+      timestamp: new Date().toISOString(),
     });
 
+    // Update and broadcast current room size
+    broadcastRoomSize(roomName);
   } catch (error) {
     console.error("Error in handleUserConnection:", error);
   }
-};
+}
 
-const sendMessageToRoom = ({ content, senderId, roomName, username,replyTo }) => {
-  const roomKey = getRoomNameWithSuffix(roomName);
+function sendMessageToRoom({
+  content,
+  senderId,
+  roomName,
+  username,
+  replyTo,
+  file,
+}) {
+  if (!roomName) return;
+
+  // Store file reference if present
+  if (file) {
+    if (!Array.isArray(roomSocketMap[roomName])) {
+      roomSocketMap[roomName] = [];
+    }
+    roomSocketMap[roomName].push(file);
+  }
+
+  const roomKey = getRoomKey(roomName);
   io.to(roomKey).emit("receiveMessage", {
     content,
     roomName,
     username,
     senderId,
     replyTo,
-    timestamp: new Date().toISOString(), // optional but useful
+    file,
+    timestamp: new Date().toISOString(),
   });
-};
+}
 
-const handleLeaveRoom = (socket, { roomName, userId, username }) => {
+async function handleLeaveRoom(socket, { roomName, userId, username }) {
   try {
     if (!roomName || !userId) return;
 
-    const roomKey = getRoomNameWithSuffix(roomName);
+    const roomKey = getRoomKey(roomName);
 
-    // 1. Remove from Socket.IO room
+    // Remove socket from room
     socket.leave(roomKey);
 
-    // 2. Remove from your user tracking
-    if (userSocketMap[userId] === socket.id) {
+    // Remove from tracking if this socket matches
+    if (userSocketMap[userId]?.socketId === socket.id) {
       delete userSocketMap[userId];
     }
 
-
-    // 3. Notify remaining users (optional but recommended)
+    // Notify remaining users
     io.to(roomKey).emit("userLeft", {
       userId,
       username,
+      timestamp: new Date().toISOString(),
     });
 
-    // 4. Update count for everyone left in the room
-    updateRoomSize(roomName);
+    // Update size and check for cleanup
+    broadcastRoomSize(roomName);
+    await cleanupRoomFiles(roomName);
   } catch (error) {
     console.error("Error in handleLeaveRoom:", error);
   }
-};
+}
 
 // ────────────────────────────────────────────────
 // Socket event setup
 // ────────────────────────────────────────────────
 
 io.on("connection", (socket) => {
-  console.log("New connection:", socket.id);
+  console.log(`New connection: ${socket.id}`);
 
   socket.on("joinRoom", (data) => {
     handleUserConnection(socket, data);
   });
 
   socket.on("sendMessage", (data) => {
+    console.log("message", data);
     sendMessageToRoom(data);
   });
 
-  // ─── NEW: leaveRoom handler ─────────────────────
   socket.on("leaveRoom", (data) => {
     handleLeaveRoom(socket, data);
   });
 
   socket.on("disconnect", () => {
-    console.log("Socket disconnected:", socket.id);
-
-    // Clean up tracking when user closes tab / refreshes
+    console.log(`Socket disconnected: ${socket.id}`);
     removeUserFromTracking(socket);
-
-    // If user was in a room → update size
-    // (you may need to track which room(s) each user is in)
-    // For now we skip auto-update on disconnect → you can improve later
   });
 });
 
@@ -149,4 +216,5 @@ module.exports = {
   io,
   app,
   server,
+  sendMessageToRoom,
 };
