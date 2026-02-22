@@ -5,7 +5,6 @@ require("dotenv").config();
 const bodyParser = require("body-parser");
 
 const PORT = process.env.PORT || 5000;
-// origin: ,
 
 // CORS setup
 app.use(

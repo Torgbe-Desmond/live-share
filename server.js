@@ -27,6 +27,7 @@ const io = new Server(server, {
 io.on("connection", (socket) => {
   console.log(`New connection: ${socket.id}`);
 
+  
   socket.on("joinRoom", (data) => handleUserConnection(io, socket, data));
   socket.on("sendMessage", (data) => sendMessageToRoom(io, data));
   socket.on("leaveRoom", (data) => handleLeaveRoom(io, socket, data));
