@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 
-router.post("", (req, res) => {
+router.get("", (req, res) => {
   res.json({ message: "we are chatting!!!" });
 });
 
