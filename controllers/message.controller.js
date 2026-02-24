@@ -1,4 +1,15 @@
-const { sendMessageToRoom } = require("../handlers/messageHandlers");
+const { globalSocketReference, userSocketMap } = require("../functions/users");
+const {
+  sendMessageToRoom,
+  sendPersonalMessage,
+} = require("../handlers/messageHandlers");
+const { handleJoinRoom } = require("../handlers/userHandlers");
+const { getRoomSize, getUserRoomStatus } = require("../helpers/roomHelpers");
+const {
+  RoomResponseObject,
+  PersonalMessageResponseObject,
+  FileObject,
+} = require("../models");
 const { io } = require("../server");
 const FileService = require("../services/file.service");
 
@@ -18,19 +29,6 @@ function error(res, message = "Something went wrong", status = 400) {
   });
 }
 
-class File {
-  constructor(file, uploaded) {
-    this.originalname = file.originalname;
-    this.path = uploaded.url;
-    this.publicId = uploaded.publicId;
-    this.type = file.mimetype;
-    this.local = false;
-    this.isSuccess = true;
-    this.viewOnce = false;
-    this.isFailed = false;
-  }
-}
-
 class MessageController {
   async addMessage(req, res) {
     try {
@@ -43,6 +41,71 @@ class MessageController {
 
       const roomPath = `rooms/${roomName}`;
 
+      // 1. Upload file (if any)
+      let mainFile = null;
+      if (req.file) {
+        const uploaded = await fileService.addAsync(req.file, roomPath);
+        mainFile = new FileObject(req.file, uploaded);
+      }
+
+      // 2. Parse reply metadata
+      let replyObject = null;
+      if (replyTo) {
+        let parsedReply;
+        try {
+          parsedReply = JSON.parse(replyTo);
+        } catch (err) {
+          return error(res, "Invalid replyTo format", 400);
+        }
+
+        replyObject = {
+          messageId: parsedReply.messageId || null,
+          content: parsedReply.content || "",
+          username: parsedReply.username || "",
+          files: parsedReply.files || [],
+        };
+      }
+    
+      // 4. Build & send message
+      const payload = new RoomResponseObject({
+        content: content || "",
+        senderId,
+        roomName,
+        messageId,
+        username: username || "",
+        replyTo: replyObject,
+        files: mainFile ? [mainFile] : [],
+        createdAt: new Date(),
+      });
+
+      sendMessageToRoom(io, payload);
+
+      return success(res, payload, 201);
+    } catch (err) {
+      console.error("AddMessage Error:", err);
+      return error(res, err.message || "Failed to create message", 500);
+    }
+  }
+
+  async addPersonalMessage(req, res) {
+    try {
+      const {
+        conversationId,
+        content,
+        senderId,
+        username,
+        replyTo,
+        messageId,
+        to,
+        from,
+      } = req.body;
+
+      if (!conversationId || !senderId) {
+        return error(res, "conversationId and senderId are required", 400);
+      }
+
+      const roomPath = `rooms/${conversationId}`;
+
       // =========================================
       // 1️⃣ Upload NEW message file (if exists)
       // =========================================
@@ -50,7 +113,7 @@ class MessageController {
 
       if (req.file) {
         const uploaded = await fileService.addAsync(req.file, roomPath);
-        mainFile = new File(req.file, uploaded);
+        mainFile = new FileObject(req.file, uploaded);
       }
 
       // =========================================
@@ -78,20 +141,23 @@ class MessageController {
       // =========================================
       // 3️⃣ Build final message payload
       // =========================================
-      const messagePayload = {
-        content: content || null,
+
+      const payload = new PersonalMessageResponseObject({
+        content: content,
         senderId,
-        roomName,
         messageId,
-        username: username || null,
+        to,
+        from,
+        conversationId,
+        username: username,
         replyTo: replyObject,
         files: mainFile ? [mainFile] : [],
         createdAt: new Date(),
-      };
+      });
 
-      sendMessageToRoom(io, messagePayload);
+      sendPersonalMessage(io, payload);
 
-      return success(res, messagePayload, 201);
+      return success(res, payload, 201);
     } catch (err) {
       console.error("AddMessage Error:", err);
       return error(res, err.message || "Failed to create message", 500);

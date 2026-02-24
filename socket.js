@@ -91,6 +91,7 @@ async function removeUserFromTracking(socket) {
   if (roomName) {
     broadcastRoomSize(roomName);
     await cleanupRoomFiles(roomName);
+    
   }
 }
 

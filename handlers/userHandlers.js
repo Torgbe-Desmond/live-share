@@ -20,11 +20,11 @@ async function removeUserFromTracking(io, socket) {
 
   if (roomName) {
     broadcastRoomSize(io, roomName);
-    await cleanupRoomFiles(io, roomName);
+    // await cleanupRoomFiles(io, roomName);
   }
 }
 
-function handleUserConnection(io, socket, userData) {
+function handleJoinRoom(io, socket, userData) {
   try {
     const { roomName, userId, username } = userData || {};
     if (!roomName || !userId) {
@@ -50,6 +50,8 @@ function handleUserConnection(io, socket, userData) {
   }
 }
 
+function handleJoinRoomOnUntracked(){}
+
 async function handleLeaveRoom(io, socket, { roomName, userId, username }) {
   try {
     if (!roomName || !userId) return;
@@ -72,14 +74,14 @@ async function handleLeaveRoom(io, socket, { roomName, userId, username }) {
     });
 
     broadcastRoomSize(io, roomName);
-    await cleanupRoomFiles(io, roomName);
+    // await cleanupRoomFiles(io, roomName);
   } catch (error) {
     console.error("Error in handleLeaveRoom:", error);
   }
 }
 
 module.exports = {
-  handleUserConnection,
+  handleJoinRoom,
   handleLeaveRoom,
   removeUserFromTracking,
 };
