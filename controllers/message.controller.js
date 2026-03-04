@@ -12,7 +12,6 @@ const {
 } = require("../models");
 const { io } = require("../server");
 const FileService = require("../services/file.service");
-
 const fileService = new FileService();
 
 function success(res, data = null, status = 200) {
