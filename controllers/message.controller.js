@@ -9,9 +9,11 @@ const {
   RoomResponseObject,
   PersonalMessageResponseObject,
   FileObject,
+  FirebaseFileObject,
 } = require("../models");
 const { io } = require("../server");
 const FileService = require("../services/file.service");
+const firebaseStorageService = require("../services/firebaseStorage.service");
 
 const fileService = new FileService();
 
@@ -110,10 +112,17 @@ class MessageController {
       // 1️⃣ Upload NEW message file (if exists)
       // =========================================
       let mainFile = null;
+      
+      // Cloudinary implementation
+      // if (req.file) {
+      //   const uploaded = await fileService.addAsync(req.file, roomPath);
+      //   mainFile = new FileObject(req.file, uploaded);
+      // }
 
-      if (req.file) {
-        const uploaded = await fileService.addAsync(req.file, roomPath);
-        mainFile = new FileObject(req.file, uploaded);
+      // Firebase implementation
+      if(req.file){
+          const upload = await firebaseStorageService.uploadFile(userId, file);
+          mainFile = new FirebaseFileObject(req.file, uploaded)
       }
 
       // =========================================

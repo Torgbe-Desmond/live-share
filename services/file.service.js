@@ -66,6 +66,7 @@ class FileService {
       return true;
     } catch (error) {}
   }
+
 }
 
 module.exports = FileService;

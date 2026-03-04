@@ -31,8 +31,20 @@ function FileObject(file, uploaded) {
   this.isFailed = false;
 }
 
+function FirebaseFileObject(file, uploaded){
+  this.originalname = file.originalname;
+  this.path = uploaded.url;
+  this.publicId = uploaded.publicId;
+  this.type = file.mimetype;
+  this.local = false;
+  this.isSuccess = true;
+  this.viewOnce = false;
+  this.isFailed = false;
+}
+
 module.exports = {
   RoomResponseObject,
   PersonalMessageResponseObject,
   FileObject,
+  FirebaseFileObject
 };
