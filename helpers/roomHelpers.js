@@ -2,6 +2,7 @@
 const { roomSocketMap, userSocketMap } = require("../functions/users");
 const FileService = require("../services/file.service");
 const fileService = new FileService();
+const firebaseStorageService = require("../services/firebaseStorage.service");
 
 function getRoomKey(roomName) {
   return `${roomName}@room`;
@@ -60,7 +61,8 @@ async function cleanupRoomFiles(io, roomName) {
   console.log(`Room ${roomName} is empty → cleaning up ${fileCount} files`);
 
   if (fileCount > 0) {
-    await fileService.deleteAsync(roomName);
+    const roomPath = `rooms/${roomName}`;
+    await firebaseStorageService.deleteFolder(roomPath);
     console.log(`Deleted all files in room: ${roomName}`);
   }
 

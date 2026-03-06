@@ -5,6 +5,7 @@ function RoomResponseObject(data) {
   this.username = data.username || "";
   this.replyTo = data.replyTo || null;
   this.files = data.files || [];
+  this.media = data.media || {};
   this.createdAt = data.createdAt || null;
 }
 
@@ -31,7 +32,7 @@ function FileObject(file, uploaded) {
   this.isFailed = false;
 }
 
-function FirebaseFileObject(file, uploaded){
+function FirebaseFileObject(file, uploaded) {
   this.originalname = file.originalname;
   this.path = uploaded.url;
   this.publicId = uploaded.publicId;
@@ -46,5 +47,5 @@ module.exports = {
   RoomResponseObject,
   PersonalMessageResponseObject,
   FileObject,
-  FirebaseFileObject
+  FirebaseFileObject,
 };

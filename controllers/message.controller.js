@@ -8,11 +8,10 @@ const { getRoomSize, getUserRoomStatus } = require("../helpers/roomHelpers");
 const {
   RoomResponseObject,
   PersonalMessageResponseObject,
-  FileObject,
+  FirebaseFileObject,
 } = require("../models");
 const { io } = require("../server");
-const FileService = require("../services/file.service");
-const fileService = new FileService();
+const firebaseStorageService = require("../services/firebaseStorage.service");
 
 function success(res, data = null, status = 200) {
   return res.status(status).json({
@@ -40,14 +39,14 @@ class MessageController {
 
       const roomPath = `rooms/${roomName}`;
 
-      // 1. Upload file (if any)
+      // const roomDetails = getUserRoomStatus(io, senderId, roomName)
+
       let mainFile = null;
-      if (req.file) {
-        const uploaded = await fileService.addAsync(req.file, roomPath);
-        mainFile = new FileObject(req.file, uploaded);
+      if(req.file){
+          const uploaded = await firebaseStorageService.uploadFile(roomPath, req.file);
+          mainFile = new FirebaseFileObject(req.file, uploaded)
       }
 
-      // 2. Parse reply metadata
       let replyObject = null;
       if (replyTo) {
         let parsedReply;
@@ -65,7 +64,6 @@ class MessageController {
         };
       }
     
-      // 4. Build & send message
       const payload = new RoomResponseObject({
         content: content || "",
         senderId,
@@ -105,19 +103,13 @@ class MessageController {
 
       const roomPath = `rooms/${conversationId}`;
 
-      // =========================================
-      // 1️⃣ Upload NEW message file (if exists)
-      // =========================================
       let mainFile = null;
-
-      if (req.file) {
-        const uploaded = await fileService.addAsync(req.file, roomPath);
-        mainFile = new FileObject(req.file, uploaded);
+      
+      if(req.file){
+          const uploaded = await firebaseStorageService.uploadFile(roomPath, req.file);
+          mainFile = new FirebaseFileObject(req.file, uploaded)
       }
 
-      // =========================================
-      // 2️⃣ Parse reply metadata (NO uploading)
-      // =========================================
       let replyObject = null;
 
       if (replyTo) {
@@ -136,10 +128,6 @@ class MessageController {
           files: parsedReply.files || [],
         };
       }
-
-      // =========================================
-      // 3️⃣ Build final message payload
-      // =========================================
 
       const payload = new PersonalMessageResponseObject({
         content: content,
