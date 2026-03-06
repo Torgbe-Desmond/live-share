@@ -13,7 +13,7 @@ const {
   sendMessageToRoom,
   sendPersonalMessage,
 } = require("./handlers/messageHandlers");
-const { setGlobalIO } = require("./services/socket.service");
+const { setGlobalSocket } = require("./functions/users");
 
 const app = express();
 const server = http.createServer(app);
@@ -26,9 +26,6 @@ const io = new Server(server, {
     credentials: true,
   },
 });
-
-// Save the global instance for use in handlers
-setGlobalIO(io);
 
 // Add this BEFORE io.on("connection", ...)
 io.use((socket, next) => {

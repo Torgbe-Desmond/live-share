@@ -1,5 +1,5 @@
 // services/firebaseStorage.service.js
-const sanitize = require("sanitize-filename");
+
 const { initializeApp } = require("firebase/app");
 const {
   getStorage,
@@ -17,13 +17,13 @@ require("dotenv").config();
  * Firebase configuration
  */
 const firebaseConfig = {
-  apiKey: "AIzaSyBvzDfiJg9KSX5TwPnlEzJsWmMZT1LVjoc",
-  authDomain: "live-playground-9bdc2.firebaseapp.com",
-  projectId: "live-playground-9bdc2",
-  storageBucket: "live-playground-9bdc2.firebasestorage.app",
-  messagingSenderId: "341816875148",
-  appId: "1:341816875148:web:aa3944491a3f07888bc3a9",
-  measurementId: "G-0EL0Q8396S",
+  apiKey: process.env.FIREBASE_API_KEY,
+  authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.FIREBASE_PROJECT_ID,
+  storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.FIREBASE_APP_ID,
+  measurementId: process.env.FIREBASE_MEASUREMENT_ID,
 };
 
 class FirebaseStorageService {
@@ -35,31 +35,30 @@ class FirebaseStorageService {
   /**
    * Upload single file
    */
-  async uploadFile(roomPath, file) {
+  async uploadFile(roomId, file) {
     try {
       console.info(
-        `🔃 Starting upload for ${file?.originalname || "Unknown file"}`,
+        `🔃 Starting upload for ${file?.originalname || "Unknown file"}`
       );
 
       const { mimetype, buffer, originalname } = file;
 
-      const safeFileName = sanitize(originalname);
+      const storageRef = ref(
+        this.storage,
+        `rooms/${roomId}/${originalname}`
+      );
 
-      const filePath = `${roomPath}/${safeFileName}`;
-      console.log("filePath", filePath);
 
-      const storageRef = ref(this.storage, filePath);
-
-      // try {
-      //   const existing = await getDownloadURL(storageRef);
-      //   if (existing) {
-      //     return {
-      //       publicId: originalname,
-      //       url: existing,
-      //       existing: true,
-      //     };
-      //   }
-      // } catch (err) { }
+      try {
+        const existing = await getDownloadURL(storageRef);
+        if (existing) {
+          return {
+            publicId: originalname,
+            url: existing,
+            existing: true,
+          };
+        }
+      } catch (err) { }
 
       const metadata = {
         contentType: mimetype,
@@ -78,33 +77,31 @@ class FirebaseStorageService {
         url: fileUrl,
         existing: false,
       };
-    } catch (err) {
-      console.error("Firebase Error Details:", {
-        code: err.code,
-        message: err.message,
-        status: err.status_,
-        serverResponse: err.customData?.serverResponse,
-      });
-      throw err;
-    }
-  }
 
-  async deleteFolder(roomPath) {
-    const folderRef = ref(this.storage, `${roomPath}`);
-
-    try {
-      const res = await listAll(folderRef);
-
-      if (res.items.length === 0) {
-        console.log(`Folder ${roomPath} is already empty.`);
-        return;
-      }
-
-      await Promise.all(res.items.map((fileRef) => deleteObject(fileRef)));
     } catch (error) {
       throw error;
     }
   }
+
+
+async deleteFolder(roomId, folderName) {
+  const folderRef = ref(this.storage, `rooms/${roomId}/${folderName}`);
+
+  try {
+    const res = await listAll(folderRef);
+
+    if (res.items.length === 0) {
+      console.log(`Folder ${folderName} is already empty.`);
+      return;
+    }
+
+    await Promise.all(res.items.map((fileRef) => deleteObject(fileRef)));
+
+  } catch (error) {
+    throw error;
+  }
+}
+
 }
 
 module.exports = new FirebaseStorageService();
