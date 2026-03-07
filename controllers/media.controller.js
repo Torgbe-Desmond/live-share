@@ -23,6 +23,8 @@ class MediaController {
     try {
       const { url, roomName, messageId } = req.body;
 
+      console.log("url, roomName, messageId",url, roomName, messageId)
+
       if (!url) return error(res, "URL is required", 400);
 
       let mediaData = mediaCache.get(url);
