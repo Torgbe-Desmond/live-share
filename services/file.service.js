@@ -14,7 +14,6 @@ class FileService {
 
     const publicId = `${folder}/${hash}`;
 
-    // 1️⃣ Check if already exists
     try {
       const existing = await cloudinary.api.resource(publicId);
       if (existing) {
@@ -26,7 +25,6 @@ class FileService {
       }
     } catch (err) {}
 
-    // 2️⃣ Upload if not exists
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
         {
