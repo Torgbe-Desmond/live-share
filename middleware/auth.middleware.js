@@ -3,8 +3,16 @@ const jwt = require("jsonwebtoken");
 const JwtTokenUtility = require("../utility/token.utility");
 const UserService = require("../services/user.service");
 
-const JWT_SECRET = process.env.JWT_ACCESvS_SECRET;
+const JWT_SECRET = process.env.JWT_ACCESS_SECRET;
 const userRepository = new UserService();
+
+class Unauthorized extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "Unauthorized";
+    this.status = 401;
+  }
+}
 
 // 1. Basic JWT authentication (attach user to req)
 const authenticate = async (req, res, next) => {
@@ -17,15 +25,6 @@ const authenticate = async (req, res, next) => {
   try {
     const decoded = JwtTokenUtility.verifyToken(token);
     const user = await userRepository.getByIdAsync(decoded.userId);
-    let restaurantId = null;
-
-    if (user.role == "restaurant_staff") {
-      await restaurantRepository
-        .getByUserIdAsync(decoded.userId)
-        .then((data) => {
-          restaurantId = data.id;
-        });
-    }
 
     if (!user) {
       return next(new Unauthorized("User not found"));
@@ -34,7 +33,6 @@ const authenticate = async (req, res, next) => {
     req.user = {
       userId: user.id,
       role: user.role,
-      restaurantId,
     };
 
     next();

@@ -29,7 +29,7 @@ function FileObject(file, uploaded) {
   this.type = file.mimetype;
   this.local = false;
   this.isSuccess = true;
-  this.viewOnce = true;
+  this.viewOnce = false;
   this.isFailed = false;
 }
 

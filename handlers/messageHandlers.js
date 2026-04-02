@@ -31,6 +31,7 @@ function sendMessageToRoom(io, payload) {
 }
 
 async function sendPersonalMessage(io, data) {
+  const { from, to } = data;
   let currentConversationId = data.conversationId
     ? data.conversationId
     : uuid();

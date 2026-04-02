@@ -52,17 +52,16 @@ async function cleanupRoomFiles(io, roomName) {
   const size = getRoomSize(io, roomName);
   if (size > 0) return; // Only clean when empty
 
-  if (!roomSocketMap[roomName] && roomSocketMap[roomName]?.fileCount === 0) {
+  const fileCount = roomSocketMap[roomName]?.fileCount ?? 0;
+  if (!roomSocketMap[roomName] || fileCount === 0) {
     delete roomSocketMap[roomName];
     return;
   }
 
   console.log(`Room ${roomName} is empty → cleaning up ${fileCount} files`);
 
-  if (fileCount > 0) {
-    await fileService.deleteAsync(roomName);
-    console.log(`Deleted all files in room: ${roomName}`);
-  }
+  await fileService.deleteAsync(roomName);
+  console.log(`Deleted all files in room: ${roomName}`);
 
   delete roomSocketMap[roomName];
 }

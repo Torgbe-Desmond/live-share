@@ -65,7 +65,7 @@ async function cleanupConversationFiles(conversationId) {
     console.error(err.message);
   }
 
-  delete roomSocketMap[roomName];
+  delete conversations[conversationId];
 }
 
 module.exports = {

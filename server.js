@@ -32,7 +32,7 @@ io.use((socket, next) => {
   const query = socket.handshake.query;
 
   // Optional: early validation
-  if (!query.storedUserId || !query.storedUsername) {
+  if (!query.userId || !query.username) {
     console.warn("Missing required identity in query");
     // You can still let it connect or reject it:
     // return next(new Error("missing_identity"));
@@ -44,17 +44,9 @@ io.use((socket, next) => {
 // Then your normal connection handler
 io.on("connection", (socket) => {
   console.log(
-    `New connection: ${socket.id} | UserID from query: ${socket.handshake.query.storedUserId || "unknown"}`,
+    `New connection: ${socket.id} | UserID from query: ${socket.handshake.query.userId || "unknown"}`,
   );
 
-  const userInfo = {
-    storedUserId: socket.handshake.query.storedUserId || undefined, // will be ignored if undefined
-    storedRoomName: socket.handshake.query.storedRoomName || undefined,
-    storedUsername: socket.handshake.query.storedUsername || undefined,
-  };
-
-  handleJoinRoom(io, socket, userInfo);
-  
   socket.on("joinRoom", (data) => handleJoinRoom(io, socket, data));
   socket.on("leaveRoom", (data) => handleLeaveRoom(io, socket, data));
 

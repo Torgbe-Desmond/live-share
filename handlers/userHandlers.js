@@ -20,7 +20,7 @@ async function removeUserFromTracking(io, socket) {
 
   if (roomName) {
     broadcastRoomSize(io, roomName);
-    // await cleanupRoomFiles(io, roomName);
+    await cleanupRoomFiles(io, roomName);
   }
 }
 
@@ -74,7 +74,7 @@ async function handleLeaveRoom(io, socket, { roomName, userId, username }) {
     });
 
     broadcastRoomSize(io, roomName);
-    // await cleanupRoomFiles(io, roomName);
+    await cleanupRoomFiles(io, roomName);
   } catch (error) {
     console.error("Error in handleLeaveRoom:", error);
   }
