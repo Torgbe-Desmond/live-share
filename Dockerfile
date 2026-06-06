@@ -1,19 +1,12 @@
-# Use a standard Node.js LTS image
 FROM node:20-slim
 
-# Set the working directory
-WORKDIR /usr/src/app
+WORKDIR /app
 
-# Install dependencies
-# Using 'npm ci' with '--omit=dev' ensures a clean, production-only install
 COPY package*.json ./
-RUN npm ci --omit=dev
+RUN npm install
 
-# Copy the rest of your application code
 COPY . .
 
-# Use a non-root user for better security (optional but recommended)
-USER node
+RUN npm run build
 
-# Run the app
-CMD ["node", "app.js"]
+CMD ["node", "dist/app.js"]

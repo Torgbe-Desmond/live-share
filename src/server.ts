@@ -1,19 +1,13 @@
-// src/server.js
-const express = require("express");
-const http = require("http");
-const { Server } = require("socket.io");
+// src/server.ts
+import express from "express";
+import http from "http";
+import { Server } from "socket.io";
 
-const {
+import {
   handleJoinRoom,
   handleLeaveRoom,
   removeUserFromTracking,
-} = require("./handlers/userHandlers");
-
-const {
-  sendMessageToRoom,
-  sendPersonalMessage,
-} = require("./handlers/messageHandlers");
-const { setGlobalSocket } = require("./functions/users");
+} from "./handlers/userHandlers";
 
 const app = express();
 const server = http.createServer(app);
@@ -27,21 +21,19 @@ const io = new Server(server, {
   },
 });
 
-// Add this BEFORE io.on("connection", ...)
+// Middleware for authentication / query validation
 io.use((socket, next) => {
   const query = socket.handshake.query;
 
-  // Optional: early validation
   if (!query.userId || !query.username) {
     console.warn("Missing required identity in query");
-    // You can still let it connect or reject it:
+    // Uncomment to reject connection:
     // return next(new Error("missing_identity"));
   }
 
   next();
 });
 
-// Then your normal connection handler
 io.on("connection", (socket) => {
   console.log(
     `New connection: ${socket.id} | UserID from query: ${socket.handshake.query.userId || "unknown"}`,
@@ -49,9 +41,8 @@ io.on("connection", (socket) => {
 
   socket.on("joinRoom", (data) => handleJoinRoom(io, socket, data));
   socket.on("leaveRoom", (data) => handleLeaveRoom(io, socket, data));
-
   socket.on("disconnect", () => removeUserFromTracking(io, socket));
 });
 
 // ── Export ────────────────────────────────────
-module.exports = { io, app, server };
+export { io, app, server };

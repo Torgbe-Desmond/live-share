@@ -3,8 +3,9 @@
   "version": "1.0.0",
   "main": "app.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node app.js"
+    "build": "tsc",
+    "dev": "tsx src/app.ts",
+    "start": "node dist/app.js"
   },
   "keywords": [],
   "author": "",
@@ -16,18 +17,22 @@
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
     "express": "^5.2.1",
-    "firebase": "^10.9.0",
-    "firebase-admin": "^12.0.0",
     "http-status-codes": "^2.3.0",
-    "jsonwebtoken": "^9.0.3",
-    "mongodb": "^7.1.0",
-    "mongoose": "^9.2.1",
     "multer": "^2.0.2",
     "multer-storage-cloudinary": "^4.0.0",
     "node-cache": "^5.1.2",
-    "puppeteer": "^24.38.0",
     "socket.io": "^4.8.3",
     "streamifier": "^0.1.1",
     "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/body-parser": "^1.19.6",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.1.0",
+    "@types/node": "^25.9.2",
+    "@types/socket.io": "^3.0.1",
+    "@types/uuid": "^10.0.0",
+    "typescript": "^6.0.3"
   }
 }
