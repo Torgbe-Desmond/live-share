@@ -37,7 +37,6 @@ class UserController {
   async addUser(req: Request, res: Response): Promise<Response> {
     try {
       const { username } = req.body;
-      console.log("username", username);
 
       if (!username) {
         return error(res, "Username is required", 400);
